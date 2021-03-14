@@ -1,7 +1,6 @@
-# Project Title
+# LL(1) Parser Generator
 
 Team members:
 
-- Name1
-- Name2
-- Name3
+- Mark Drobnak
+- Amar Shehzad
