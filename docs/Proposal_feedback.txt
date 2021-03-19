@@ -1,0 +1,19 @@
+
+Nice proposal.
+
+Good testing of the non-IO portions of the project.
+
+Nice to see the combination of CSCI-651 and CSCI-742.
+
+Good stretch goals.
+
+Another stretch goal might be to see whether the parser generator can be
+packaged as a library and as a procedural macro --- include a grammar directly
+in a .rs file.
+
+Also think about whether the generated code will be entirely stand-alone, or
+whether there will also be a parsing engine crate that would need to be depended
+upon to use the generated parser.
+
+
+Score: 10/10
