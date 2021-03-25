@@ -1,0 +1,44 @@
+use crate::lexer::Token;
+use std::ops::Range;
+
+grammar<'input>;
+
+/*
+Example grammar file:
+use some::imports;
+
+token Token {
+    "STR_ALIAS" => Token::MyToken
+}
+
+grammar;
+
+Nonterminal: TheType = {
+    some symbols here "STR_ALIAS" => action code here,
+    second production here => second action here,
+};
+*/
+
+pub Grammar = Imports TokenDecl GrammarDecl Nonterminals;
+
+Imports: () = "IDENT"? => ();
+
+TokenDecl: () = "token" "{" "}" => ();
+
+GrammarDecl = "grammar" ";";
+
+Nonterminals = "token";
+
+extern {
+    type Location = usize;
+    type Error = Range<usize>;
+
+    enum Token<'input> {
+        "IDENT" => Token::Identifier(<&'input str>),
+        "grammar" => Token::Grammar,
+        "token" => Token::Token,
+        "{" => Token::LBrace,
+        "}" => Token::RBrace,
+        ";" => Token::Semicolon,
+    }
+}
