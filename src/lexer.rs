@@ -30,7 +30,7 @@ pub enum Token<'input> {
     #[token("]")]
     RBracket,
     #[token("|")]
-    VBAR,
+    VBar,
 
     #[regex("[a-zA-Z][a-zA-Z0-9]*")]
     Identifier(&'input str),

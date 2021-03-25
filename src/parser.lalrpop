@@ -40,5 +40,14 @@ extern {
         "{" => Token::LBrace,
         "}" => Token::RBrace,
         ";" => Token::Semicolon,
-    }
+        ":" => Token::Colon,
+        "=>" => Token::EqArrow,
+        "=" => Token::Equal,
+        "," => Token::Comma,
+        ")" => Token::RParen,
+        "(" => Token::LParen,
+        "[" => Token::LBracket,
+        "]" => Token::RBracket,
+        "|" => Token::VBar
+        }
 }
