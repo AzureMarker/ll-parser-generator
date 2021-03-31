@@ -19,7 +19,7 @@ grammar<'input>;
 
 pub Grammar = Import* TokenDecl GrammarDecl Nonterminal*;
 
-Import: () = "use" "IMPORT_CODE" ";" => ();
+Import: () = "IMPORT_CODE" ";" => ();
 
 TokenDecl: () = "token" "{" "}" => ();
 
@@ -35,7 +35,7 @@ Productions: () = {
     "{" Comma<Productions> "}" => (),
 };
 
-Production: () = Symbol+ "=>" "CODE" => ();
+Production: () = Symbol+ "=>" "ACTION_CODE" => ();
 
 Symbol: () = "IDENT" => ();
 
@@ -54,7 +54,7 @@ extern {
     enum Token<'input> {
         "IDENT" => Token::Identifier(<&'input str>),
         "IMPORT_CODE" => Token::ImportCode(<&'input str>),
-        "CODE" => Token::Code(<&'input str>),
+        "ACTION_CODE" => Token::ActionCode(<&'input str>),
         "grammar" => Token::Grammar,
         "token" => Token::Token,
         "use" => Token::Use,
