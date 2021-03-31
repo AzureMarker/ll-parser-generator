@@ -7,7 +7,10 @@ use std::io;
 
 mod lexer;
 
-lalrpop_mod!(parser);
+lalrpop_mod!(
+    #[allow(clippy::all)]
+    parser
+);
 
 fn main() {
     let mut input = String::new();
