@@ -17,15 +17,35 @@ grammar<'input>;
 //     second production here => second action here,
 // };
 
-pub Grammar = Imports TokenDecl GrammarDecl Nonterminals;
+pub Grammar = Import* TokenDecl GrammarDecl Nonterminal*;
 
-Imports: () = ("use" <"IMPORT_CODE"> ";")* => ();
+Import: () = "use" "IMPORT_CODE" ";" => ();
 
 TokenDecl: () = "token" "{" "}" => ();
 
 GrammarDecl = "grammar" ";";
 
-Nonterminals = "token";
+Nonterminal = "IDENT" ":" TypeRef "=" Productions ";";
+
+TypeRef: () = "IDENT" => ();
+
+Productions: () = {
+    // Single production
+    Production => (),
+    "{" Comma<Productions> "}" => (),
+};
+
+Production: () = Symbol+ "=>" "CODE" => ();
+
+Symbol: () = "IDENT" => ();
+
+// Allows trailing element
+Comma<T>: Vec<T> = {
+   <mut v:(<T> ",")*> <e:T?> => {
+       v.extend(e);
+       v
+   }
+};
 
 extern {
     type Location = usize;
