@@ -49,8 +49,8 @@ pub enum Token<'input> {
 
 #[derive(Logos)]
 enum ImportToken<'input> {
-    // FIXME: This token represents a Rust import expression (everything after
-    //        "use" and before ";").
+    /// This token represents a Rust import expression (everything after "use"
+    /// and before ";").
     #[regex(r"[^ \t\n\f][^;]+")]
     ImportCode(&'input str),
 
@@ -62,15 +62,56 @@ enum ImportToken<'input> {
 
 #[derive(Logos)]
 enum ActionToken<'input> {
-    // FIXME: This token represents Rust action code (code that appears after
-    //        "=>"), which will be lexed by matching parens/braces/brackets.
-    #[token("action_FIXME")]
+    /// This token represents Rust action code (code that appears after "=>"),
+    /// which will be lexed by matching parens/braces/brackets.
+    #[regex(r".", parse_action_code)]
     ActionCode(&'input str),
 
     #[error]
     // Skip whitespace
-    #[regex(r"[ \t\n\f]+", logos::skip)]
+    #[regex(r"[ \t\n\f]+", logos::skip, priority = 2)]
     Error,
+}
+
+fn parse_action_code<'input>(lexer: &mut Lexer<'input, ActionToken<'input>>) -> &'input str {
+    // FIXME: This lexing fails in multiple ways because it doesn't handle
+    //        strings, comments, and other elements of Rust code that could
+    //        contain extra parens or comma/semicolons. Try replicating
+    //        LALRPOP's lexing behavior:
+    //        https://github.com/lalrpop/lalrpop/blob/fc9986c725d908a60b11d8480711afa33f7f3564/lalrpop/src/tok/mod.rs#L433
+    let mut balance = 0;
+
+    // Get the initial char so we can consider it in parens matching
+    let first_char = lexer.slice().chars().next().unwrap();
+    let chars = std::iter::once(first_char).chain(lexer.remainder().chars());
+
+    for (i, c) in chars.enumerate() {
+        match c {
+            '(' | '[' | '{' => balance += 1,
+            ')' | ']' | '}' => {
+                // Check if we're expecting a closing brace. If not, then we're
+                // done with the Rust code
+                if balance == 0 {
+                    break;
+                }
+
+                balance -= 1
+            }
+            ';' | ',' => {
+                if balance == 0 {
+                    break;
+                }
+            }
+            _ => {}
+        }
+
+        if i != 0 {
+            // Don't bump the first char because it's already in the slice
+            lexer.bump(c.len_utf8());
+        }
+    }
+
+    lexer.slice()
 }
 
 /// Wrap the lexer with some state so it can switch between lexer

@@ -25,17 +25,17 @@ TokenDecl: () = "token" "{" "}" => ();
 
 GrammarDecl = "grammar" ";";
 
-Nonterminal = "IDENT" ":" TypeRef "=" Productions ";";
+Nonterminal = "IDENT" ":" TypeRef "=" <Productions> ";";
 
 TypeRef: () = "IDENT" => ();
 
-Productions: () = {
+Productions: Vec<&'input str> = {
     // Single production
-    Production => (),
-    "{" Comma<Productions> "}" => (),
+    Production => vec![<>],
+    "{" <Comma<Production>> "}",
 };
 
-Production: () = Symbol+ "=>" "ACTION_CODE" => ();
+Production = Symbol+ "=>" <"ACTION_CODE">;
 
 Symbol: () = "IDENT" => ();
 
