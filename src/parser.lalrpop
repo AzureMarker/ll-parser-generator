@@ -3,21 +3,19 @@ use std::ops::Range;
 
 grammar<'input>;
 
-/*
-Example grammar file:
-use some::imports;
-
-token Token {
-    "STR_ALIAS" => Token::MyToken
-}
-
-grammar;
-
-Nonterminal: TheType = {
-    some symbols here "STR_ALIAS" => action code here,
-    second production here => second action here,
-};
-*/
+// Example grammar file:
+// use some::imports;
+//
+// token Token {
+//     "STR_ALIAS" => Token::MyToken
+// }
+//
+// grammar;
+//
+// Nonterminal: TheType = {
+//     some symbols here "STR_ALIAS" => action code here,
+//     second production here => second action here,
+// };
 
 pub Grammar = Imports TokenDecl GrammarDecl Nonterminals;
 
