@@ -7,6 +7,8 @@ pub enum Token<'input> {
     Grammar,
     #[token("token")]
     Token,
+    #[token("use")]
+    Use,
     #[token(";")]
     Semicolon,
     #[token(":")]
@@ -34,6 +36,16 @@ pub enum Token<'input> {
 
     #[regex("[a-zA-Z][a-zA-Z0-9]*")]
     Identifier(&'input str),
+
+    // FIXME: This token represents a Rust import, which will be lexed by
+    //        consuming input until a semicolon.
+    #[token("import_FIXME")]
+    ImportCode(&'input str),
+
+    // FIXME: This token represents Rust code, which will be lexed by matching
+    //        parens
+    #[token("code_FIXME")]
+    Code(&'input str),
 
     #[error]
     // Skip whitespace
