@@ -19,7 +19,7 @@ grammar<'input>;
 
 pub Grammar = Import* TokenDecl GrammarDecl Nonterminal*;
 
-Import: () = "IMPORT_CODE" ";" => ();
+Import = "use" <"IMPORT_CODE"> ";";
 
 TokenDecl: () = "token" "{" "}" => ();
 

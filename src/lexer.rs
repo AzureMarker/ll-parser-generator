@@ -51,7 +51,7 @@ pub enum Token<'input> {
 enum ImportToken<'input> {
     // FIXME: This token represents a Rust import expression (everything after
     //        "use" and before ";").
-    #[token("import_FIXME")]
+    #[regex(r"[^ \t\n\f][^;]+")]
     ImportCode(&'input str),
 
     #[error]
