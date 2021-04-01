@@ -6,6 +6,7 @@ use logos::Logos;
 use std::io;
 use std::io::Read;
 
+mod ast;
 mod lexer;
 
 lalrpop_mod!(
@@ -17,9 +18,8 @@ fn main() {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input).unwrap();
 
-    let lexer = Token::lexer(&input);
-    let lexer_iter = StatefulLexer::new(lexer);
-    let ast = parser::GrammarParser::new().parse(lexer_iter);
+    let lexer = StatefulLexer::new(Token::lexer(&input));
+    let ast = parser::GrammarParser::new().parse(lexer);
 
     println!("{:#?}", ast);
 }

@@ -1,3 +1,4 @@
+use crate::ast::*;
 use crate::lexer::Token;
 use std::ops::Range;
 
@@ -16,28 +17,35 @@ grammar<'input>;
 //     some symbols here "STR_ALIAS" => action code here,
 //     second production here => second action here,
 // };
+//
+// SecondNonterminal: OtherType = some symbols => action code;
 
-pub Grammar = Import* TokenDecl GrammarDecl Nonterminal*;
+pub Grammar: AstGrammar<'input> =
+    <imports:Import*> <token_decl:TokenDecl> GrammarDecl <nonterminals:Nonterminal*>
+    => AstGrammar { imports, token_decl, nonterminals };
 
 Import = "use" <"IMPORT_CODE"> ";";
 
-TokenDecl: () = "token" "{" "}" => ();
+TokenDecl: AstTokenDecl = "token" "{" "}" => AstTokenDecl {};
 
-GrammarDecl = "grammar" ";";
+GrammarDecl: () = "grammar" ";" => ();
 
-Nonterminal = "IDENT" ":" TypeRef "=" <Productions> ";";
+Nonterminal: AstNonterminal<'input> =
+    <name:"IDENT"> ":" <ty:TypeRef> "=" <productions:Productions> ";"
+    => AstNonterminal { name, ty, productions };
 
-TypeRef: () = "IDENT" => ();
+TypeRef: AstTypeRef = "IDENT" => AstTypeRef {};
 
-Productions: Vec<&'input str> = {
+Productions: Vec<AstProduction<'input>> = {
     // Single production
     Production => vec![<>],
     "{" <Comma<Production>> "}",
 };
 
-Production = Symbol+ "=>" <"ACTION_CODE">;
+Production : AstProduction<'input> = <symbols:Symbol+> "=>" <code:"ACTION_CODE">
+    => AstProduction { symbols, code };
 
-Symbol: () = "IDENT" => ();
+Symbol: AstSymbol = "IDENT" => AstSymbol {};
 
 // Allows trailing element
 Comma<T>: Vec<T> = {
