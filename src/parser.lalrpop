@@ -5,36 +5,67 @@ use std::ops::Range;
 grammar<'input>;
 
 // Example grammar file:
-// use some::imports;
+// use crate::Token;
 //
 // token Token {
-//     "STR_ALIAS" => Token::MyToken
+//     "(" = Token::LParen,
+//     ")" = Token::RParen,
+//     "NUMBER" = Token::Number,
 // }
 //
 // grammar;
 //
-// Nonterminal: TheType = {
-//     some symbols here "STR_ALIAS" => action code here,
-//     second production here => second action here,
+// pub Term: i32 = {
+//     <n:Number> => n,
+//     "(" <t:Term> ")" => t,
 // };
 //
-// SecondNonterminal: OtherType = some symbols => action code;
+// Number: i32 = "NUMBER" => 1;
 
 pub Grammar: AstGrammar<'input> =
     <imports:Import*> <token_decl:TokenDecl> GrammarDecl <nonterminals:Nonterminal*>
     => AstGrammar { imports, token_decl, nonterminals };
+ 
+TokenAlias: AstTokenAlias<'input> = <term:"TERMINAL"> "=" <pattern:TokenPattern>
+    => AstTokenAlias { term, pattern };
+
+TokenPattern:AstTokenPattern<'input> = <ty:"IDENT"> "::" <variant:"IDENT">
+    => AstTokenPattern { ty, variant };
 
 Import = "use" <"IMPORT_CODE"> ";";
 
-TokenDecl: AstTokenDecl = "token" "{" "}" => AstTokenDecl {};
+TokenDecl: AstTokenDecl<'input> = 
+    "token" <name:"IDENT"> "{" <aliases:Comma<TokenAlias>> "}" 
+    => AstTokenDecl { name, aliases };
 
 GrammarDecl: () = "grammar" ";" => ();
 
 Nonterminal: AstNonterminal<'input> =
-    <name:"IDENT"> ":" <ty:TypeRef> "=" <productions:Productions> ";"
-    => AstNonterminal { name, ty, productions };
+    <vis:"pub"?> <name:"IDENT"> ":" <ty:TypeRef> "=" <productions:Productions> ";"
+    => AstNonterminal {
+        is_pub: vis.is_some(),
+        name,
+        ty,
+        productions
+    };
 
-TypeRef: AstTypeRef = "IDENT" => AstTypeRef {};
+// TODO: Support more types
+TypeRef: AstTypeRef<'input> = {
+    <path:TypePath> <generics:("<" <Comma<TypeRef>> ">")?>
+    => AstTypeRef::Ty(path, generics.unwrap_or_default()),
+
+    "(" <Comma<TypeRef>> ")" => AstTypeRef::Tuple(<>),
+};
+
+TypePath: AstTypePath<'input> =
+    <leading:"::"?> <mut segments:(<"IDENT"> "::")*> <tail:"IDENT">
+    => AstTypePath {
+        is_absolute: leading.is_some(),
+        segments: {
+            segments.push(tail);
+            segments
+        }
+    };
 
 Productions: Vec<AstProduction<'input>> = {
     // Single production
@@ -45,14 +76,16 @@ Productions: Vec<AstProduction<'input>> = {
 Production : AstProduction<'input> = <symbols:Symbol+> "=>" <code:"ACTION_CODE">
     => AstProduction { symbols, code };
 
-Symbol: AstSymbol = "IDENT" => AstSymbol {};
+Symbol: AstSymbol<'input> = {
+    "TERMINAL" => AstSymbol::Terminal(<>),
+    "IDENT" => AstSymbol::Nonterminal(<>),
+    "<" <"IDENT"> ":" <"IDENT"> ">" => AstSymbol::Named(<>)
+};
 
 // Allows trailing element
-Comma<T>: Vec<T> = {
-   <mut v:(<T> ",")*> <e:T?> => {
-       v.extend(e);
-       v
-   }
+Comma<T>: Vec<T> = <mut v:(<T> ",")*> <e:T?> => {
+    v.extend(e);
+    v
 };
 
 extern {
@@ -61,22 +94,24 @@ extern {
 
     enum Token<'input> {
         "IDENT" => Token::Identifier(<&'input str>),
+        "TERMINAL" => Token::Terminal(<&'input str>),
         "IMPORT_CODE" => Token::ImportCode(<&'input str>),
         "ACTION_CODE" => Token::ActionCode(<&'input str>),
         "grammar" => Token::Grammar,
         "token" => Token::Token,
         "use" => Token::Use,
+        "pub" => Token::Pub,
         "{" => Token::LBrace,
         "}" => Token::RBrace,
         ";" => Token::Semicolon,
         ":" => Token::Colon,
+        "::" => Token::ColonColon,
         "=>" => Token::EqArrow,
         "=" => Token::Equal,
         "," => Token::Comma,
         ")" => Token::RParen,
         "(" => Token::LParen,
-        "[" => Token::LBracket,
-        "]" => Token::RBracket,
-        "|" => Token::VBar
-        }
+        "<" => Token::LAngle,
+        ">" => Token::RAngle,
+    }
 }
