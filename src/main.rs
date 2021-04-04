@@ -10,6 +10,9 @@ mod ast;
 mod lexer;
 mod ll_table_gen;
 
+#[cfg(test)]
+mod grammar_tests;
+
 lalrpop_mod!(
     #[allow(clippy::all)]
     parser
