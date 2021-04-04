@@ -17,6 +17,7 @@ few stages of a compiler or static analysis tool.
 * Created the grammar file parser using the LALRPOP parser-generator library.
 * The grammar file parser builds an AST from the input.
 * Started implementing LL(1) algorithms (Nullable and First)
+* Started grammar testing infrastructure
 
 ## Remaining Work
 * Finish implementing LL(1) algorithms (Follow and Action table)
@@ -41,7 +42,7 @@ few stages of a compiler or static analysis tool.
   ```
     * Alternatively, could have the user define the grammar in a seperate file
       which is read by a build script (build.rs). This is how LALRPOP works.
-* Add tests :)
+* Add more tests :)
 
 ## Additional Details
 ### Project Structure
