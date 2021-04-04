@@ -87,10 +87,7 @@ fn parse_action_code<'input>(lexer: &mut Lexer<'input, ActionToken<'input>>) -> 
     //        LALRPOP's lexing behavior:
     //        https://github.com/lalrpop/lalrpop/blob/fc9986c725d908a60b11d8480711afa33f7f3564/lalrpop/src/tok/mod.rs#L433
     let mut balance = 0;
-
-    // Get the initial char so we can consider it in parens matching
-    let first_char = lexer.slice().chars().next().unwrap();
-    let chars = std::iter::once(first_char).chain(lexer.remainder().chars());
+    let chars = lexer.slice().chars().chain(lexer.remainder().chars());
 
     for (i, c) in chars.enumerate() {
         match c {
