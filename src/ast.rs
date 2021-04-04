@@ -49,7 +49,7 @@ pub struct AstProduction<'input> {
     pub code: &'input str,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AstSymbol<'input> {
     Terminal(&'input str),
     Nonterminal(&'input str),

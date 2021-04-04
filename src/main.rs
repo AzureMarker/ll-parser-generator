@@ -8,6 +8,7 @@ use std::io::Read;
 
 mod ast;
 mod lexer;
+mod ll_table_gen;
 
 lalrpop_mod!(
     #[allow(clippy::all)]
