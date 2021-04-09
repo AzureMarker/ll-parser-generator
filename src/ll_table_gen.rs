@@ -59,12 +59,13 @@ fn compute_nullable<'input>(ast: &AstGrammar<'input>) -> NullableMap<'input> {
     while changed {
         changed = false;
         for (nonterminal, symbols) in &productions {
-            if symbols
-                .iter()
-                .all(|symbol| nullable[symbol.term_or_nonterm()])
+            if !nullable[nonterminal]
+                && symbols
+                    .iter()
+                    .all(|symbol| nullable[symbol.term_or_nonterm()])
             {
-                nullable.insert(nonterminal, true);
                 changed = true;
+                nullable.insert(nonterminal, true);
             }
         }
     }
@@ -100,8 +101,11 @@ fn compute_first<'input>(
                 {
                     let next_symbol = first[symbols[i].term_or_nonterm()].clone();
                     let nonterm_first = first.get_mut(nonterm).unwrap();
-                    nonterm_first.extend(next_symbol);
-                    changed = true;
+
+                    if !nonterm_first.is_superset(&next_symbol) {
+                        changed = true;
+                        nonterm_first.extend(next_symbol);
+                    }
                 }
             }
         }
