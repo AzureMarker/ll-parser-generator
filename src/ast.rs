@@ -43,13 +43,13 @@ pub struct AstTypePath<'input> {
     pub segments: Vec<&'input str>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AstProduction<'input> {
     pub symbols: Vec<AstSymbol<'input>>,
     pub code: &'input str,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum AstSymbol<'input> {
     Terminal(&'input str),
     Nonterminal(&'input str),

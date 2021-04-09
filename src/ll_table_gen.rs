@@ -1,11 +1,12 @@
 //! LL(1) action table generation
 
-use crate::ast::{AstGrammar, AstSymbol};
+use crate::ast::{AstGrammar, AstProduction, AstSymbol};
 use std::collections::{HashMap, HashSet};
 
 type NullableMap<'input> = HashMap<&'input str, bool>;
 type FirstMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
 type FollowMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
+type ParseTable<'input> = HashMap<(&'input str, &'input str), HashSet<AstProduction<'input>>>;
 
 impl<'input> AstGrammar<'input> {
     /// Get the terminals used in the grammar
@@ -23,12 +24,12 @@ impl<'input> AstGrammar<'input> {
     /// the production.
     fn productions<'a>(
         &'a self,
-    ) -> impl Iterator<Item = (&'input str, Vec<AstSymbol<'input>>)> + 'a {
+    ) -> impl Iterator<Item = (&'input str, AstProduction<'input>)> + 'a {
         self.nonterminals.iter().flat_map(|nonterminal| {
             nonterminal
                 .productions
                 .iter()
-                .map(move |production| (nonterminal.name, production.symbols.clone()))
+                .map(move |production| (nonterminal.name, production.clone()))
         })
     }
 }
@@ -58,9 +59,10 @@ fn compute_nullable<'input>(ast: &AstGrammar<'input>) -> NullableMap<'input> {
     let productions: Vec<_> = ast.productions().collect();
     while changed {
         changed = false;
-        for (nonterminal, symbols) in &productions {
+        for (nonterminal, production) in &productions {
             if !nullable[nonterminal]
-                && symbols
+                && production
+                    .symbols
                     .iter()
                     .all(|symbol| nullable[symbol.term_or_nonterm()])
             {
@@ -93,7 +95,8 @@ fn compute_first<'input>(
     let mut changed = true;
     while changed {
         changed = false;
-        for (nonterm, symbols) in &productions {
+        for (nonterm, production) in &productions {
+            let symbols = &production.symbols;
             for i in 0..symbols.len() {
                 if symbols[..i]
                     .iter()
@@ -131,7 +134,8 @@ fn compute_follow<'input>(
     let mut changed = true;
     while changed {
         changed = false;
-        for (nonterm, symbols) in &productions {
+        for (nonterm, production) in &productions {
+            let symbols = &production.symbols;
             for i in 0..symbols.len() {
                 if !nonterminals.contains(symbols[i].term_or_nonterm()) {
                     continue;
@@ -170,6 +174,66 @@ fn compute_follow<'input>(
     follow
 }
 
+pub fn compute_parse_table<'input>(
+    ast: &AstGrammar<'input>,
+    nullable: &NullableMap<'input>,
+    first: &FirstMap<'input>,
+    follow: &FollowMap<'input>,
+) -> ParseTable<'input> {
+    let terminals: Vec<_> = ast.terminals().collect();
+    let mut parse_table = HashMap::new();
+
+    for nonterm in ast.nonterminals() {
+        for term in &terminals {
+            parse_table.insert((nonterm, *term), HashSet::new());
+        }
+    }
+
+    for (nonterminal, production) in ast.productions() {
+        if production
+            .symbols
+            .iter()
+            .all(|symbol| nullable[symbol.term_or_nonterm()])
+        {
+            for term in &follow[nonterminal] {
+                parse_table
+                    .get_mut(&(nonterminal, *term))
+                    .unwrap()
+                    .insert(production.clone());
+            }
+        }
+
+        for term in first_range(&production.symbols, first, nullable) {
+            parse_table
+                .get_mut(&(nonterminal, term))
+                .unwrap()
+                .insert(production.clone());
+        }
+    }
+
+    parse_table
+}
+
+/// Compute the possible first terminals in a range of symbols
+fn first_range<'input>(
+    symbols: &[AstSymbol<'input>],
+    first: &FollowMap<'input>,
+    nullable: &NullableMap<'input>,
+) -> HashSet<&'input str> {
+    let mut new_first = HashSet::new();
+
+    for symbol in symbols {
+        let symbol = symbol.term_or_nonterm();
+        new_first.extend(first[symbol].clone());
+
+        if !nullable[symbol] {
+            break;
+        }
+    }
+
+    new_first
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,6 +247,21 @@ mod tests {
         // set-like
         ($($v:expr),* $(,)?) => {
             std::iter::Iterator::collect(std::array::IntoIter::new([$($v,)*]))
+        };
+    }
+
+    macro_rules! symbol {
+        ($nonterm:ident) => {
+            AstSymbol::Nonterminal(stringify!($nonterm))
+        };
+        ($term:expr) => {
+            AstSymbol::Terminal(stringify!($term))
+        };
+    }
+
+    macro_rules! symbols {
+        ($($sym:tt)*) => {
+            vec![$(symbol!($sym)),*]
         };
     }
 
@@ -210,7 +289,7 @@ mod tests {
     #[test]
     fn infix_parens() {
         let ast = parse_grammar! {
-            token Token{
+            token Token {
                 "var" = Token::Var,
                 "(" = Token::LParen,
                 ")" = Token::RParen,
@@ -279,8 +358,9 @@ mod tests {
             }
         );
 
+        let follow = compute_follow(&ast, &nullable, &first);
         assert_eq!(
-            compute_follow(&ast, &nullable, &first),
+            follow,
             collection! {
                 "P" => collection! { "\")\"" },
                 "O" => collection!{ "\")\"" },
@@ -289,6 +369,88 @@ mod tests {
                 "AP" => collection!{ "\"||\"", "\")\"" },
                 "Z" => collection!{ "\"||\"", "\"&&\"", "\")\"" },
             }
-        )
+        );
+
+        let code = "()";
+        assert_eq!(
+            compute_parse_table(&ast, &nullable, &first, &follow),
+            collection! {
+                ("P", "\"var\"") => collection!(AstProduction {
+                    symbols: symbols!(O), code
+                }),
+                ("P", "\"!\"") => collection!(AstProduction {
+                    symbols: symbols!(O), code
+                }),
+                ("P", "\"&&\"") => collection!(),
+                ("P", "\"||\"") => collection!(),
+                ("P", "\"(\"") => collection!(AstProduction {
+                    symbols: symbols!(O), code
+                }),
+                ("P", "\")\"") => collection!(),
+
+                ("O", "\"var\"") => collection!(AstProduction{
+                    symbols: symbols!(A OP), code
+                }),
+                ("O", "\"!\"") => collection!(AstProduction{
+                    symbols: symbols!(A OP), code
+                }),
+                ("O", "\"&&\"") => collection!(),
+                ("O", "\"||\"") => collection!(),
+                ("O", "\"(\"") => collection!(AstProduction{
+                    symbols: symbols!(A OP), code
+                }),
+                ("O", "\")\"") => collection!(),
+
+                ("OP", "\"var\"") => collection!(),
+                ("OP", "\"!\"") => collection!(),
+                ("OP", "\"&&\"") => collection!(),
+                ("OP", "\"||\"") => collection!(AstProduction{
+                    symbols: symbols!("||" A OP), code
+                }),
+                ("OP", "\"(\"") => collection!(),
+                ("OP", "\")\"") => collection!(AstProduction{
+                    symbols: symbols!(), code
+                }),
+
+                ("A", "\"var\"") => collection!(AstProduction{
+                    symbols: symbols!(Z AP), code
+                }),
+                ("A", "\"!\"") => collection!(AstProduction{
+                    symbols: symbols!(Z AP), code
+                }),
+                ("A", "\"&&\"") => collection!(),
+                ("A", "\"||\"") => collection!(),
+                ("A", "\"(\"") => collection!(AstProduction{
+                    symbols: symbols!(Z AP), code
+                }),
+                ("A", "\")\"") => collection!(),
+
+                ("AP", "\"var\"") => collection!(),
+                ("AP", "\"!\"") => collection!(),
+                ("AP", "\"&&\"") => collection!(AstProduction{
+                    symbols: symbols!("&&" Z AP), code
+                }),
+                ("AP", "\"||\"") => collection!(AstProduction{
+                    symbols: symbols!(), code
+                }),
+                ("AP", "\"(\"") => collection!(),
+                ("AP", "\")\"") => collection!(AstProduction{
+                    symbols: symbols!(), code
+                }),
+
+                ("Z", "\"var\"") => collection!(AstProduction {
+                    symbols: symbols!("var"), code
+                }),
+                ("Z", "\"!\"") => collection!(AstProduction {
+                    symbols: symbols!("!" Z), code
+                }),
+                ("Z", "\"&&\"") => collection!(),
+                ("Z", "\"||\"") => collection!(),
+                ("Z", "\"(\"") => collection!(AstProduction {
+                    symbols: symbols!("(" P ")"), code
+                }),
+                ("Z", "\")\"") => collection!(),
+            }
+        );
     }
 }
