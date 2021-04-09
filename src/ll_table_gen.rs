@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 type NullableMap<'input> = HashMap<&'input str, bool>;
 type FirstMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
+type FollowMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
 
 impl<'input> AstGrammar<'input> {
     /// Get the terminals used in the grammar
@@ -107,4 +108,49 @@ fn compute_first<'input>(
     }
 
     first
+}
+
+fn compute_follow<'input>(
+    ast: &AstGrammar<'input>,
+    nullable: NullableMap<'input>,
+) -> FollowMap<'input> {
+    let mut follow = HashMap::new();
+
+    for nonterm in ast.nonterminals() {
+        follow.insert(nonterm, HashSet::new());
+    }
+    let productions: Vec<_> = ast.productions().collect();
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for (nonterm, symbols) in &productions {
+            for i in 1..symbols.len() {
+                if follow.contains_key(nonterm)
+                    && symbols[(i + 1)..symbols.len()]
+                        .iter()
+                        .all(|symbol| nullable[symbol.term_or_nonterm()])
+                {
+                    let next_symbol = follow[symbols[i].term_or_nonterm()].clone();
+                    let nonterm_follow = follow.get_mut(nonterm).unwrap();
+                    nonterm_follow.extend(next_symbol);
+                    changed = true;
+                }
+                for j in (i + 1)..symbols.len() {
+                    if follow.contains_key(nonterm)
+                        && symbols[(i + 1)..(j - 1)]
+                            .iter()
+                            .all(|symbol| nullable[symbol.term_or_nonterm()])
+                    {
+                        let next_symbol = follow[symbols[i].term_or_nonterm()].clone();
+                        let nonterm_follow = follow.get_mut(nonterm).unwrap();
+                        nonterm_follow.extend(next_symbol);
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
+
+    follow
 }
