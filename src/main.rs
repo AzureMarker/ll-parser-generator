@@ -6,12 +6,13 @@ use logos::Logos;
 use std::io;
 use std::io::Read;
 
+#[cfg(test)]
+#[macro_use]
+mod grammar_tests;
+
 mod ast;
 mod lexer;
 mod ll_table_gen;
-
-#[cfg(test)]
-mod grammar_tests;
 
 lalrpop_mod!(
     #[allow(clippy::all)]

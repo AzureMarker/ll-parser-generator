@@ -1,18 +1,22 @@
 use crate::ast::{AstGrammar, AstTokenDecl};
-use crate::lexer::{StatefulLexer, Token};
-use crate::parser::GrammarParser;
-use logos::Logos;
+
+macro_rules! parse_grammar {
+    ($($grammar:tt)*) => {{
+        let grammar = stringify!($($grammar)*);
+
+        let lexer = crate::lexer::StatefulLexer::new(
+            <crate::lexer::Token as logos::Logos>::lexer(&grammar)
+        );
+        crate::parser::GrammarParser::new()
+            .parse(lexer)
+            .expect("Grammar should parse")
+    }};
+}
 
 macro_rules! grammar_test {
     (grammar { $($grammar:tt)* }, $expected_ast:expr) => {{
-        let grammar = stringify!($($grammar)*);
-
-        let lexer = StatefulLexer::new(Token::lexer(&grammar));
-        let actual_ast = GrammarParser::new()
-            .parse(lexer)
-            .expect("Grammar should parse");
-
-        assert_eq!(actual_ast,$expected_ast);
+        let actual_ast = parse_grammar! { $($grammar)* };
+        assert_eq!(actual_ast, $expected_ast);
     }};
 }
 
