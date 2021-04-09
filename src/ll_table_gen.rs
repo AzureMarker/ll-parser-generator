@@ -117,11 +117,14 @@ fn compute_first<'input>(
 fn compute_follow<'input>(
     ast: &AstGrammar<'input>,
     nullable: NullableMap<'input>,
+    first: FirstMap<'input>,
 ) -> FollowMap<'input> {
     let mut follow = HashMap::new();
 
-    for nonterm in ast.nonterminals() {
-        follow.insert(nonterm, HashSet::new());
+    let nonterminals: HashSet<_> = ast.nonterminals().collect();
+
+    for nonterm in &nonterminals {
+        follow.insert(*nonterm, HashSet::new());
     }
     let productions: Vec<_> = ast.productions().collect();
 
@@ -129,27 +132,35 @@ fn compute_follow<'input>(
     while changed {
         changed = false;
         for (nonterm, symbols) in &productions {
-            for i in 1..symbols.len() {
-                if follow.contains_key(nonterm)
-                    && symbols[(i + 1)..symbols.len()]
-                        .iter()
-                        .all(|symbol| nullable[symbol.term_or_nonterm()])
+            for i in 0..symbols.len() {
+                if !nonterminals.contains(symbols[i].term_or_nonterm()) {
+                    continue;
+                }
+
+                if symbols[(i + 1)..]
+                    .iter()
+                    .all(|symbol| nullable[symbol.term_or_nonterm()])
                 {
-                    let next_symbol = follow[symbols[i].term_or_nonterm()].clone();
-                    let nonterm_follow = follow.get_mut(nonterm).unwrap();
-                    nonterm_follow.extend(next_symbol);
-                    changed = true;
+                    let nonterm_follow = follow[nonterm].clone();
+                    let symbol_follow = follow.get_mut(symbols[i].term_or_nonterm()).unwrap();
+
+                    if !symbol_follow.is_superset(&nonterm_follow) {
+                        changed = true;
+                        symbol_follow.extend(nonterm_follow);
+                    }
                 }
                 for j in (i + 1)..symbols.len() {
-                    if follow.contains_key(nonterm)
-                        && symbols[(i + 1)..(j - 1)]
-                            .iter()
-                            .all(|symbol| nullable[symbol.term_or_nonterm()])
+                    if symbols[(i + 1)..j]
+                        .iter()
+                        .all(|symbol| nullable[symbol.term_or_nonterm()])
                     {
-                        let next_symbol = follow[symbols[i].term_or_nonterm()].clone();
-                        let nonterm_follow = follow.get_mut(nonterm).unwrap();
-                        nonterm_follow.extend(next_symbol);
-                        changed = true;
+                        let next_terminals = first[symbols[j].term_or_nonterm()].clone();
+                        let symbol_follow = follow.get_mut(symbols[i].term_or_nonterm()).unwrap();
+
+                        if !symbol_follow.is_superset(&next_terminals) {
+                            changed = true;
+                            symbol_follow.extend(next_terminals);
+                        }
                     }
                 }
             }
