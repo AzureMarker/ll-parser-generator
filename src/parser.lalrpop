@@ -73,7 +73,7 @@ Productions: Vec<AstProduction<'input>> = {
     "{" <Comma<Production>> "}",
 };
 
-Production : AstProduction<'input> = <symbols:Symbol+> "=>" <code:"ACTION_CODE">
+Production : AstProduction<'input> = <symbols:Symbol*> "=>" <code:"ACTION_CODE">
     => AstProduction { symbols, code };
 
 Symbol: AstSymbol<'input> = {
