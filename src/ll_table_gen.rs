@@ -75,7 +75,7 @@ fn compute_nullable<'input>(ast: &AstGrammar<'input>) -> NullableMap<'input> {
 
 fn compute_first<'input>(
     ast: &AstGrammar<'input>,
-    nullable: NullableMap<'input>,
+    nullable: &NullableMap<'input>,
 ) -> FirstMap<'input> {
     let mut first = HashMap::new();
 
@@ -94,8 +94,8 @@ fn compute_first<'input>(
     while changed {
         changed = false;
         for (nonterm, symbols) in &productions {
-            for i in 1..symbols.len() {
-                if symbols[0..i]
+            for i in 0..symbols.len() {
+                if symbols[..i]
                     .iter()
                     .all(|symbol| nullable[symbol.term_or_nonterm()])
                 {
@@ -116,8 +116,8 @@ fn compute_first<'input>(
 
 fn compute_follow<'input>(
     ast: &AstGrammar<'input>,
-    nullable: NullableMap<'input>,
-    first: FirstMap<'input>,
+    nullable: &NullableMap<'input>,
+    first: &FirstMap<'input>,
 ) -> FollowMap<'input> {
     let mut follow = HashMap::new();
 
@@ -168,4 +168,127 @@ fn compute_follow<'input>(
     }
 
     follow
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Taken from https://stackoverflow.com/a/27582993
+    macro_rules! collection {
+        // map-like
+        ($($k:expr => $v:expr),* $(,)?) => {
+            std::iter::Iterator::collect(std::array::IntoIter::new([$(($k, $v),)*]))
+        };
+        // set-like
+        ($($v:expr),* $(,)?) => {
+            std::iter::Iterator::collect(std::array::IntoIter::new([$($v,)*]))
+        };
+    }
+
+    #[test]
+    fn nullable_basic_grammar() {
+        let ast = parse_grammar! {
+            token Token {
+                "a" = Token::A
+            }
+            grammar;
+            MyNonterminal: () = "a" => ();
+            MyEmptyNonterminal: () = => ();
+        };
+
+        assert_eq!(
+            compute_nullable(&ast),
+            collection! {
+                "MyNonterminal" => false,
+                "MyEmptyNonterminal" => true,
+                "\"a\"" => false
+            }
+        );
+    }
+
+    #[test]
+    fn infix_parens() {
+        let ast = parse_grammar! {
+            token Token{
+                "var" = Token::Var,
+                "(" = Token::LParen,
+                ")" = Token::RParen,
+                "!" = Token::Not,
+                "&&" = Token::And,
+                "||" = Token::Or
+            }
+            grammar;
+
+            pub P: () = O => ();
+
+            O: () = A OP => ();
+            OP: () = {
+                "||" A OP => (),
+                => (),
+            };
+
+            A: () = Z AP => ();
+            AP: () = {
+                "&&" Z AP => (),
+                => (),
+            };
+
+            Z: () = {
+                "var" => (),
+                "!" Z => (),
+                "(" P ")" => (),
+            };
+        };
+
+        let nullable = compute_nullable(&ast);
+        assert_eq!(
+            nullable,
+            collection! {
+                "P" => false,
+                "O" => false,
+                "OP" => true,
+                "A" => false,
+                "AP" => true,
+                "Z" => false,
+                "\"var\"" => false,
+                "\"(\"" => false,
+                "\")\"" => false,
+                "\"!\"" => false,
+                "\"&&\"" => false,
+                "\"||\"" => false,
+            }
+        );
+
+        let first = compute_first(&ast, &nullable);
+        assert_eq!(
+            first,
+            collection! {
+                "P" => collection! { "\"var\"", "\"!\"", "\"(\"" },
+                "O" => collection!{ "\"var\"", "\"!\"", "\"(\"" },
+                "OP" => collection!{ "\"||\"" },
+                "A" => collection!{ "\"var\"", "\"!\"", "\"(\"" },
+                "AP" => collection!{ "\"&&\"" },
+                "Z" => collection!{ "\"var\"", "\"!\"", "\"(\"" },
+                "\"var\"" => collection! { "\"var\"" },
+                "\"(\"" => collection! { "\"(\"" },
+                "\")\"" => collection! { "\")\"" },
+                "\"!\"" => collection! { "\"!\"" },
+                "\"&&\"" => collection! { "\"&&\"" },
+                "\"||\"" => collection! { "\"||\"" },
+            }
+        );
+
+        assert_eq!(
+            compute_follow(&ast, &nullable, &first),
+            collection! {
+                "P" => collection! { "\")\"" },
+                "O" => collection!{ "\")\"" },
+                "OP" => collection!{ "\")\"" },
+                "A" => collection!{ "\"||\"", "\")\"" },
+                "AP" => collection!{ "\"||\"", "\")\"" },
+                "Z" => collection!{ "\"||\"", "\"&&\"", "\")\"" },
+            }
+        )
+    }
 }
