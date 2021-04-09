@@ -32,7 +32,7 @@ TokenAlias: AstTokenAlias<'input> = <term:"TERMINAL"> "=" <pattern:TokenPattern>
 TokenPattern:AstTokenPattern<'input> = <ty:"IDENT"> "::" <variant:"IDENT">
     => AstTokenPattern { ty, variant };
 
-Import = "use" <"IMPORT_CODE"> ";";
+Import: &'input str = "use" <"IMPORT_CODE"> ";" => <>.trim();
 
 TokenDecl: AstTokenDecl<'input> = 
     "token" <name:"IDENT"> "{" <aliases:Comma<TokenAlias>> "}" 
@@ -74,7 +74,7 @@ Productions: Vec<AstProduction<'input>> = {
 };
 
 Production : AstProduction<'input> = <symbols:Symbol*> "=>" <code:"ACTION_CODE">
-    => AstProduction { symbols, code };
+    => AstProduction { symbols, code: code.trim() };
 
 Symbol: AstSymbol<'input> = {
     "TERMINAL" => AstSymbol::Terminal(<>),
