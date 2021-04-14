@@ -1,0 +1,18 @@
+
+Good checkpoint writeup and presentation.
+
+Looks to be solid progress.  (I like seeing the comments with the `(via
+pair-programming)` annotation to communicate that both partners are developing
+the code.)
+
+I like the `Ast*<'input>` types that are parameterized by the lifetime of the
+input (and, therefore, simply has references in to the input `str`); although,
+it does require reading the entire input into a contiguous buffer.
+
+Would love to see the `ll_parser!` procedural macro working, although I wonder
+if there will be a mismatch between `proc_macro::TokenStream` and `&'input str`
+as the input.  I would suggest going with a `build.rs` approach until the
+generator is quite solid.
+
+
+Score: 10/10
