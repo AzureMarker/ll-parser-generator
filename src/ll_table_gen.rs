@@ -10,19 +10,19 @@ type ParseTable<'input> = HashMap<(&'input str, &'input str), HashSet<AstProduct
 
 impl<'input> AstGrammar<'input> {
     /// Get the terminals used in the grammar
-    fn terminals<'a>(&'a self) -> impl Iterator<Item = &'input str> + 'a {
+    pub fn terminals<'a>(&'a self) -> impl Iterator<Item = &'input str> + 'a {
         self.token_decl.aliases.iter().map(|alias| alias.term)
     }
 
     /// Get the nonterminals used in the grammar
-    fn nonterminals<'a>(&'a self) -> impl Iterator<Item = &'input str> + 'a {
+    pub fn nonterminals<'a>(&'a self) -> impl Iterator<Item = &'input str> + 'a {
         self.nonterminals.iter().map(|nonterminal| nonterminal.name)
     }
 
     /// Get the productions used in the grammar.
     /// The first element is the nonterminal name, the second is the symbols of
     /// the production.
-    fn productions<'a>(
+    pub fn productions<'a>(
         &'a self,
     ) -> impl Iterator<Item = (&'input str, AstProduction<'input>)> + 'a {
         self.nonterminals.iter().flat_map(|nonterminal| {

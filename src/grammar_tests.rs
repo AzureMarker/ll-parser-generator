@@ -7,7 +7,7 @@ macro_rules! parse_grammar {
         let lexer = crate::lexer::StatefulLexer::new(
             <crate::lexer::Token as logos::Logos>::lexer(&grammar)
         );
-        crate::parser::GrammarParser::new()
+        crate::parsing::parser::GrammarParser::new()
             .parse(lexer)
             .expect("Grammar should parse")
     }};

@@ -260,6 +260,8 @@ dependencies = [
  "lalrpop",
  "lalrpop-util",
  "logos",
+ "proc-macro2",
+ "quote",
 ]
 
 [[package]]
