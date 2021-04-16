@@ -34,6 +34,9 @@ fn main() {
     let parse_table = compute_parse_table(&ast, &nullable, &first, &follow);
 
     println!("Parsed grammar: {:#?}\n", ast);
+    println!("Nullable: {:#?}", nullable);
+    println!("First: {:#?}", first);
+    println!("Follow: {:#?}", follow);
     println!("Parse table: {:#?}", parse_table);
 }
 
