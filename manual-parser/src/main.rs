@@ -14,5 +14,5 @@ fn main() {
     let lexer = Lexer::new(input.as_str());
     let ast = parse(lexer).unwrap();
 
-    println!("Ast: {:#?}", ast);
+    println!("Ast: {:?}", ast);
 }
