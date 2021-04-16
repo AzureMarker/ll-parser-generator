@@ -44,7 +44,7 @@ impl<'input> AstSymbol<'input> {
     }
 }
 
-fn compute_nullable<'input>(ast: &AstGrammar<'input>) -> NullableMap<'input> {
+pub fn compute_nullable<'input>(ast: &AstGrammar<'input>) -> NullableMap<'input> {
     let mut nullable = HashMap::new();
 
     for terminal in ast.terminals() {
@@ -75,7 +75,7 @@ fn compute_nullable<'input>(ast: &AstGrammar<'input>) -> NullableMap<'input> {
     nullable
 }
 
-fn compute_first<'input>(
+pub fn compute_first<'input>(
     ast: &AstGrammar<'input>,
     nullable: &NullableMap<'input>,
 ) -> FirstMap<'input> {
@@ -117,7 +117,7 @@ fn compute_first<'input>(
     first
 }
 
-fn compute_follow<'input>(
+pub fn compute_follow<'input>(
     ast: &AstGrammar<'input>,
     nullable: &NullableMap<'input>,
     first: &FirstMap<'input>,
