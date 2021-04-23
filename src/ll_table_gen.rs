@@ -1,12 +1,13 @@
 //! LL(1) action table generation
 
-use crate::ast::{AstGrammar, AstProduction, AstSymbol};
+use crate::ast::{AstGrammar, AstNonterminal, AstProduction, AstSymbol};
 use std::collections::{HashMap, HashSet};
 
-type NullableMap<'input> = HashMap<&'input str, bool>;
-type FirstMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
-type FollowMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
-type ParseTable<'input> = HashMap<(&'input str, &'input str), HashSet<AstProduction<'input>>>;
+pub(crate) type NullableMap<'input> = HashMap<&'input str, bool>;
+pub(crate) type FirstMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
+pub(crate) type FollowMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
+pub(crate) type ParseTable<'input> =
+    HashMap<(&'input str, &'input str), HashSet<AstProduction<'input>>>;
 
 impl<'input> AstGrammar<'input> {
     /// Get the terminals used in the grammar
@@ -30,6 +31,21 @@ impl<'input> AstGrammar<'input> {
                 .productions
                 .iter()
                 .map(move |production| (nonterminal.name, production.clone()))
+        })
+    }
+
+    /// Get the productions used in the grammar, along with their index in the nonterminal's
+    /// production list.
+    pub fn productions_indexed<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a AstNonterminal<'input>, &'a AstProduction<'input>, usize)> + 'a
+    {
+        self.nonterminals.iter().flat_map(|nonterminal| {
+            nonterminal
+                .productions
+                .iter()
+                .enumerate()
+                .map(move |(i, production)| (nonterminal, production, i))
         })
     }
 }

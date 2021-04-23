@@ -1,8 +1,0 @@
-[package]
-name = "manual-parser"
-version = "0.1.0"
-authors = ["Mark Drobnak <mtd8050@rit.edu>", "Amar Shehzad <as2607@rit.edu>"]
-edition = "2018"
-
-[dependencies]
-logos = "0.12"

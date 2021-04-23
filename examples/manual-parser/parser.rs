@@ -12,7 +12,7 @@ grammar;
 
 pub Term: AstTerm = {
     <n:Number> => n,
-    "(" <t:Term> ")" => AstTerm::Parens(Box::new(t)),
+    "(" <t:Term> ")" => AstTerm::Paren(Box::new(t)),
 };
 
 Number: AstTerm = "NUMBER" => AstTerm::Number;
@@ -35,6 +35,7 @@ enum ActionResult {
 #[derive(Debug)]
 pub enum ParseError {
     UnexpectedEOF,
+    ExtraToken(Token),
     UnrecognizedToken {
         expected: Vec<&'static str>,
         found: Token,
@@ -142,13 +143,25 @@ pub fn parse(lexer: impl Iterator<Item = Token>) -> Result<AstTerm, ParseError> 
                                 // First of Number
                                 vec!["\"NUMBER\""]
                             }
-                            _ => unreachable!(),
+                            Symbol::Term0 => {
+                                vec!["\"(\""]
+                            }
+                            Symbol::Term1 => {
+                                vec!["\")\""]
+                            }
+                            Symbol::Term2 => {
+                                vec!["\"NUMBER\""]
+                            }
                         },
                         found: lexer.next().unwrap(),
                     });
                 }
             }
         }
+    }
+
+    if let Some(token) = lexer.next() {
+        return Err(ParseError::ExtraToken(token));
     }
 
     Ok(pop_nonterm0(&mut results))
@@ -171,8 +184,8 @@ fn pop_nonterm1(results: &mut Vec<ActionResult>) -> AstTerm {
 }
 
 fn reduce_nonterm0_0(results: &mut Vec<ActionResult>) {
-    let n = pop_nonterm1(results);
-    let result = action_nonterm0_0(n);
+    let param0 = pop_nonterm1(results);
+    let result = action_nonterm0_0(param0);
     results.push(ActionResult::Nonterm0(result));
 }
 

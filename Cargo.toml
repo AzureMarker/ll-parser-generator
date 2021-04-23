@@ -7,9 +7,6 @@ edition = "2018"
 [lib]
 proc-macro = true
 
-[workspace]
-members = ["manual-parser"]
-
 [dependencies]
 logos = "0.12"
 lalrpop-util = "0.19"
