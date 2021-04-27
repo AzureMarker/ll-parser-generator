@@ -37,6 +37,19 @@ pub enum AstTypeRef<'input> {
     Tuple(Vec<AstTypeRef<'input>>),
 }
 
+impl<'input> AstTypeRef<'input> {
+    #[cfg(test)]
+    pub fn simple_ty(segments: Vec<&'input str>) -> Self {
+        AstTypeRef::Ty(
+            AstTypePath {
+                is_absolute: false,
+                segments,
+            },
+            Vec::new(),
+        )
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct AstTypePath<'input> {
     pub is_absolute: bool,
