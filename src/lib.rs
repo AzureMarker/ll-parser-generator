@@ -38,6 +38,22 @@ pub fn ll_parser(input: TokenStream) -> TokenStream {
     let follow = compute_follow(&ast, &nullable, &first);
     let parse_table = compute_parse_table(&ast, &nullable, &first, &follow);
 
+    // Check for parse table conflicts
+    if let Some(((symbol, terminal), productions)) = parse_table
+        .iter()
+        .find(|(_, productions)| productions.len() > 1)
+    {
+        let message = format!(
+            "Found a parse-table conflict at symbol \"{}\" and terminal {}:\n{:#?}",
+            symbol, terminal, productions
+        );
+
+        let result = quote! {
+            compile_error!(#message);
+        };
+        return result.into();
+    }
+
     // Compute some info about names, nonterminals, etc upfront.
     let name_map = generate_name_map(&ast);
     let nonterm_ty_map = generate_nonterm_ty_map(&ast);
