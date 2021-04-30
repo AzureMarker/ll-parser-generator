@@ -9,10 +9,17 @@ pub(crate) type FollowMap<'input> = HashMap<&'input str, HashSet<&'input str>>;
 pub(crate) type ParseTable<'input> =
     HashMap<(&'input str, &'input str), HashSet<AstProduction<'input>>>;
 
+const WRAPPER_NONTERM: &str = "__ll_parser_wrapper_start";
+pub const EOF_TERMINAL: &str = "\"__ll_parser_eof\"";
+
 impl<'input> AstGrammar<'input> {
     /// Get the terminals used in the grammar
     pub fn terminals<'a>(&'a self) -> impl Iterator<Item = &'input str> + 'a {
-        self.token_decl.aliases.iter().map(|alias| alias.term)
+        self.token_decl
+            .aliases
+            .iter()
+            .map(|alias| alias.term)
+            .chain(Some(EOF_TERMINAL))
     }
 
     /// Get the nonterminals used in the grammar
@@ -58,6 +65,30 @@ impl<'input> AstSymbol<'input> {
             AstSymbol::Named(_, nonterm) => *nonterm,
         }
     }
+}
+
+pub fn insert_wrapper_start_nonterm(ast: &mut AstGrammar) {
+    let start_nonterm = ast
+        .nonterminals
+        .iter_mut()
+        .find(|nonterminal| nonterminal.is_pub)
+        .expect("Must have a single public nonterminal");
+    start_nonterm.is_pub = false;
+
+    let wrapper_nonterm = AstNonterminal {
+        is_pub: true,
+        name: WRAPPER_NONTERM,
+        ty: start_nonterm.ty.clone(),
+        productions: vec![AstProduction {
+            symbols: vec![
+                AstSymbol::Named("result", start_nonterm.name),
+                AstSymbol::Terminal(EOF_TERMINAL),
+            ],
+            code: "result",
+        }],
+    };
+
+    ast.nonterminals.push(wrapper_nonterm);
 }
 
 pub fn compute_nullable<'input>(ast: &AstGrammar<'input>) -> NullableMap<'input> {
@@ -283,28 +314,31 @@ mod tests {
 
     #[test]
     fn nullable_basic_grammar() {
-        let ast = parse_grammar! {
+        let mut ast = parse_grammar! {
             token Token {
                 "a" = Token::A
             }
             grammar;
-            MyNonterminal: () = "a" => ();
+            pub MyNonterminal: () = "a" => ();
             MyEmptyNonterminal: () = => ();
         };
+        insert_wrapper_start_nonterm(&mut ast);
 
         assert_eq!(
             compute_nullable(&ast),
             collection! {
                 "MyNonterminal" => false,
                 "MyEmptyNonterminal" => true,
-                "\"a\"" => false
+                "\"a\"" => false,
+                WRAPPER_NONTERM => false,
+                EOF_TERMINAL => false,
             }
         );
     }
 
     #[test]
     fn infix_parens() {
-        let ast = parse_grammar! {
+        let mut ast = parse_grammar! {
             token Token {
                 "var" = Token::Var,
                 "(" = Token::LParen,
@@ -335,6 +369,7 @@ mod tests {
                 "(" P ")" => (),
             };
         };
+        insert_wrapper_start_nonterm(&mut ast);
 
         let nullable = compute_nullable(&ast);
         assert_eq!(
@@ -352,6 +387,8 @@ mod tests {
                 "\"!\"" => false,
                 "\"&&\"" => false,
                 "\"||\"" => false,
+                WRAPPER_NONTERM => false,
+                EOF_TERMINAL => false,
             }
         );
 
@@ -371,6 +408,8 @@ mod tests {
                 "\"!\"" => collection! { "\"!\"" },
                 "\"&&\"" => collection! { "\"&&\"" },
                 "\"||\"" => collection! { "\"||\"" },
+                WRAPPER_NONTERM => collection! { "\"var\"", "\"!\"", "\"(\"" },
+                EOF_TERMINAL => collection! { EOF_TERMINAL }
             }
         );
 
@@ -378,12 +417,13 @@ mod tests {
         assert_eq!(
             follow,
             collection! {
-                "P" => collection! { "\")\"" },
-                "O" => collection!{ "\")\"" },
-                "OP" => collection!{ "\")\"" },
-                "A" => collection!{ "\"||\"", "\")\"" },
-                "AP" => collection!{ "\"||\"", "\")\"" },
-                "Z" => collection!{ "\"||\"", "\"&&\"", "\")\"" },
+                "P" => collection! { "\")\"", EOF_TERMINAL },
+                "O" => collection!{ "\")\"",EOF_TERMINAL },
+                "OP" => collection!{ "\")\"",EOF_TERMINAL },
+                "A" => collection!{ "\"||\"", "\")\"",EOF_TERMINAL },
+                "AP" => collection!{ "\"||\"", "\")\"",EOF_TERMINAL },
+                "Z" => collection!{ "\"||\"", "\"&&\"", "\")\"",EOF_TERMINAL },
+                WRAPPER_NONTERM => collection!()
             }
         );
 
@@ -391,6 +431,32 @@ mod tests {
         assert_eq!(
             compute_parse_table(&ast, &nullable, &first, &follow),
             collection! {
+                (WRAPPER_NONTERM, "\"var\"") => collection!(AstProduction {
+                    symbols: vec![
+                        AstSymbol::Named("result", "P"),
+                        AstSymbol::Terminal(EOF_TERMINAL)
+                    ],
+                    code: "result"
+                }),
+                (WRAPPER_NONTERM, "\"!\"") => collection!(AstProduction {
+                    symbols: vec![
+                        AstSymbol::Named("result", "P"),
+                        AstSymbol::Terminal(EOF_TERMINAL)
+                    ],
+                    code: "result"
+                }),
+                (WRAPPER_NONTERM, "\"&&\"") => collection!(),
+                (WRAPPER_NONTERM, "\"||\"") => collection!(),
+                (WRAPPER_NONTERM, "\"(\"") => collection!(AstProduction {
+                    symbols: vec![
+                        AstSymbol::Named("result", "P"),
+                        AstSymbol::Terminal(EOF_TERMINAL)
+                    ],
+                    code: "result"
+                }),
+                (WRAPPER_NONTERM, "\")\"") => collection!(),
+                (WRAPPER_NONTERM, EOF_TERMINAL) => collection!(),
+
                 ("P", "\"var\"") => collection!(AstProduction {
                     symbols: symbols!(O), code
                 }),
@@ -403,54 +469,63 @@ mod tests {
                     symbols: symbols!(O), code
                 }),
                 ("P", "\")\"") => collection!(),
+                ("P", EOF_TERMINAL) => collection!(),
 
-                ("O", "\"var\"") => collection!(AstProduction{
+                ("O", "\"var\"") => collection!(AstProduction {
                     symbols: symbols!(A OP), code
                 }),
-                ("O", "\"!\"") => collection!(AstProduction{
+                ("O", "\"!\"") => collection!(AstProduction {
                     symbols: symbols!(A OP), code
                 }),
                 ("O", "\"&&\"") => collection!(),
                 ("O", "\"||\"") => collection!(),
-                ("O", "\"(\"") => collection!(AstProduction{
+                ("O", "\"(\"") => collection!(AstProduction {
                     symbols: symbols!(A OP), code
                 }),
                 ("O", "\")\"") => collection!(),
+                ("O", EOF_TERMINAL) => collection!(),
 
                 ("OP", "\"var\"") => collection!(),
                 ("OP", "\"!\"") => collection!(),
                 ("OP", "\"&&\"") => collection!(),
-                ("OP", "\"||\"") => collection!(AstProduction{
+                ("OP", "\"||\"") => collection!(AstProduction {
                     symbols: symbols!("||" A OP), code
                 }),
                 ("OP", "\"(\"") => collection!(),
-                ("OP", "\")\"") => collection!(AstProduction{
+                ("OP", "\")\"") => collection!(AstProduction {
+                    symbols: symbols!(), code
+                }),
+                ("OP", EOF_TERMINAL) => collection!(AstProduction {
                     symbols: symbols!(), code
                 }),
 
-                ("A", "\"var\"") => collection!(AstProduction{
+                ("A", "\"var\"") => collection!(AstProduction {
                     symbols: symbols!(Z AP), code
                 }),
-                ("A", "\"!\"") => collection!(AstProduction{
+                ("A", "\"!\"") => collection!(AstProduction {
                     symbols: symbols!(Z AP), code
                 }),
                 ("A", "\"&&\"") => collection!(),
                 ("A", "\"||\"") => collection!(),
-                ("A", "\"(\"") => collection!(AstProduction{
+                ("A", "\"(\"") => collection!(AstProduction {
                     symbols: symbols!(Z AP), code
                 }),
                 ("A", "\")\"") => collection!(),
+                ("A", EOF_TERMINAL) => collection!(),
 
                 ("AP", "\"var\"") => collection!(),
                 ("AP", "\"!\"") => collection!(),
-                ("AP", "\"&&\"") => collection!(AstProduction{
+                ("AP", "\"&&\"") => collection!(AstProduction {
                     symbols: symbols!("&&" Z AP), code
                 }),
-                ("AP", "\"||\"") => collection!(AstProduction{
+                ("AP", "\"||\"") => collection!(AstProduction {
                     symbols: symbols!(), code
                 }),
                 ("AP", "\"(\"") => collection!(),
-                ("AP", "\")\"") => collection!(AstProduction{
+                ("AP", "\")\"") => collection!(AstProduction {
+                    symbols: symbols!(), code
+                }),
+                ("AP", EOF_TERMINAL) => collection!(AstProduction {
                     symbols: symbols!(), code
                 }),
 
@@ -466,6 +541,7 @@ mod tests {
                     symbols: symbols!("(" P ")"), code
                 }),
                 ("Z", "\")\"") => collection!(),
+                ("Z", EOF_TERMINAL) => collection!(),
             }
         );
     }

@@ -31,7 +31,7 @@ pub struct AstNonterminal<'input> {
     pub productions: Vec<AstProduction<'input>>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AstTypeRef<'input> {
     Ty(AstTypePath<'input>, Vec<AstTypeRef<'input>>),
     Tuple(Vec<AstTypeRef<'input>>),
@@ -50,7 +50,7 @@ impl<'input> AstTypeRef<'input> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AstTypePath<'input> {
     pub is_absolute: bool,
     pub segments: Vec<&'input str>,

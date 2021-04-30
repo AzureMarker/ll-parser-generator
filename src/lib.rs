@@ -3,7 +3,8 @@ extern crate lalrpop_util;
 
 use crate::ast::{AstGrammar, AstProduction, AstSymbol, AstTypePath, AstTypeRef};
 use crate::ll_table_gen::{
-    compute_first, compute_follow, compute_nullable, compute_parse_table, FirstMap, ParseTable,
+    compute_first, compute_follow, compute_nullable, compute_parse_table,
+    insert_wrapper_start_nonterm, FirstMap, ParseTable, EOF_TERMINAL,
 };
 use crate::parsing::parse;
 use proc_macro::TokenStream;
@@ -30,7 +31,8 @@ type ProductionIdMap<'input> = HashMap<(&'input str, &'input AstProduction<'inpu
 #[proc_macro]
 pub fn ll_parser(input: TokenStream) -> TokenStream {
     let input = input.to_string();
-    let ast = parse(&input).unwrap(); // TODO: return error
+    let mut ast = parse(&input).unwrap(); // TODO: return error
+    insert_wrapper_start_nonterm(&mut ast);
 
     // Compute LL(1) parse table
     let nullable = compute_nullable(&ast);
@@ -84,7 +86,6 @@ pub fn ll_parser(input: TokenStream) -> TokenStream {
         .map(TokenStream2::from_str)
         .collect::<Result<_, _>>()
         .unwrap();
-    let token_ty = Ident::new(ast.token_decl.name, Span::call_site());
     let output = quote! {
         // TODO: allow for user-specified module name
         #(use #imports;)*
@@ -96,13 +97,13 @@ pub fn ll_parser(input: TokenStream) -> TokenStream {
 
         #action_result_enum
 
-        #[derive(Debug)]
-        pub enum ParseError {
+        #[derive(Debug, PartialEq)]
+        pub enum ParseError<T> {
             UnexpectedEOF,
-            ExtraToken(#token_ty),
+            ExtraToken(T),
             UnrecognizedToken {
                 expected: std::vec::Vec<&'static str>,
-                found: #token_ty,
+                found: T,
             },
         }
 
@@ -148,7 +149,13 @@ fn generate_parse_fn<'a>(
         .flat_map(|(key, productions)| productions.iter().map(move |production| (*key, production)))
         .map(|((nonterm, next_token), production)| {
             let nonterm_ident = &names[nonterm];
-            let token_pat = &token_pats[next_token];
+
+            let token_pat = if next_token == EOF_TERMINAL {
+                quote! { None }
+            } else {
+                let pat = &token_pats[next_token];
+                quote! { Some(#pat) }
+            };
             let production_id = production_ids[&(nonterm, production)];
             let reduction_fn = format_ident!("reduce_{}_{}", nonterm_ident, production_id);
             let symbol_push_stmts = production.symbols.iter().rev().map(|symbol| {
@@ -173,14 +180,15 @@ fn generate_parse_fn<'a>(
 
     let first_match_rules = first_map.iter().map(|(symbol, first_set)| {
         let canonical_name = &names[*symbol];
-        let first_set_iter = first_set.iter();
+        let mut first_vec: Vec<_> = first_set.iter().collect();
+        first_vec.sort();
         quote! {
-            Symbol::#canonical_name => vec![#(#first_set_iter),*],
+            Symbol::#canonical_name => vec![#(#first_vec),*],
         }
     });
 
     quote! {
-        pub fn parse(lexer: impl Iterator<Item = #token_ty>) -> Result<#return_ty, ParseError> {
+        pub fn parse(lexer: impl Iterator<Item = #token_ty>) -> Result<#return_ty, ParseError<#token_ty>> {
             let mut lexer = lexer.peekable();
             let mut stack = vec![SymbolOrReduction::Symbol(Symbol::#start_nonterm_canonical)];
             let mut results = Vec::new();
@@ -195,7 +203,17 @@ fn generate_parse_fn<'a>(
                 };
 
                 if symbol.is_terminal() {
-                    let token = lexer.next().ok_or(ParseError::UnexpectedEOF)?;
+                    let token = lexer.next();
+
+                    if symbol.is_end() {
+                        if let Some(token) = token {
+                            return Err(ParseError::ExtraToken(token));
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    let token = token.ok_or(ParseError::UnexpectedEOF)?;
 
                     if symbol == token {
                         continue;
@@ -206,11 +224,11 @@ fn generate_parse_fn<'a>(
                         });
                     }
                 } else {
-                    let next_token = lexer.peek().ok_or(ParseError::UnexpectedEOF)?;
-
+                    let next_token = lexer.peek();
                     match (symbol, next_token) {
                         #(#parse_table_matches)*
-                        (symbol, _) => {
+                        (symbol, None) => return Err(ParseError::UnexpectedEOF),
+                        (symbol, Some(_)) => {
                             return Err(ParseError::UnrecognizedToken {
                                 expected: match symbol {
                                     #(#first_match_rules)*
@@ -294,17 +312,21 @@ fn generate_reduce_fns(ast: &AstGrammar, names: &NameMap) -> TokenStream2 {
                     AstSymbol::Terminal(_) => None,
                 })
                 .enumerate();
-            let param_stmts = params.clone().map(|(j, (is_named, nonterm))| {
-                let canonical_nonterm_name = &names[nonterm];
-                let pop_fn = format_ident!("pop_{}", canonical_nonterm_name);
+            let mut param_stmts: Vec<_> = params
+                .clone()
+                .map(|(j, (is_named, nonterm))| {
+                    let canonical_nonterm_name = &names[nonterm];
+                    let pop_fn = format_ident!("pop_{}", canonical_nonterm_name);
 
-                if is_named {
-                    let param_name = format_ident!("param{}", j);
-                    quote! { let #param_name = #pop_fn(results); }
-                } else {
-                    quote! { #pop_fn(results); }
-                }
-            });
+                    if is_named {
+                        let param_name = format_ident!("param{}", j);
+                        quote! { let #param_name = #pop_fn(results); }
+                    } else {
+                        quote! { #pop_fn(results); }
+                    }
+                })
+                .collect();
+            param_stmts.reverse();
             let action_fn = format_ident!("action_{}_{}", canonical_name, i);
             let action_params = params.filter_map(|(j, (is_named, _))| {
                 if !is_named {
@@ -367,10 +389,15 @@ fn generate_symbol_impl(ast: &AstGrammar, names: &NameMap) -> TokenStream2 {
         quote! { Symbol::#variant => #nonterm }
     });
 
+    let end_variant = &names[EOF_TERMINAL];
     quote! {
         impl Symbol {
             fn is_terminal(&self) -> bool {
                 matches!(self, #(#terminals)|*)
+            }
+
+            fn is_end(&self) -> bool {
+                matches!(self, Symbol::#end_variant)
             }
 
             fn name(&self) -> &'static str {
