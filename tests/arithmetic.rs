@@ -129,7 +129,7 @@ fn add() {
 }
 
 #[test]
-fn basic_associativity() {
+fn basic_precedence() {
     let lexer = Lexer::new("1 + 2 * 3");
     let result = parser::parse(lexer);
 
@@ -148,7 +148,7 @@ fn basic_associativity() {
 }
 
 #[test]
-fn advanced_associativity() {
+fn advanced_precedence() {
     let lexer = Lexer::new("(1 - 2) / (1 * 1)");
     let result = parser::parse(lexer);
 
