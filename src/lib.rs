@@ -411,11 +411,10 @@ fn generate_symbol_impl(ast: &AstGrammar, names: &NameMap) -> TokenStream2 {
 }
 
 fn generate_symbol_enum(ast: &AstGrammar, names: &NameMap) -> TokenStream2 {
-    let fields: Vec<_> = ast
+    let fields = ast
         .terminals()
         .chain(ast.nonterminals())
-        .map(|name| &names[name])
-        .collect();
+        .map(|name| &names[name]);
 
     quote! {
         enum Symbol {
