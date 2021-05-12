@@ -1,0 +1,73 @@
+
+Team: ll-parser-generator
+
+
+Score: 70 / 70
+
+Excellent project.  Really like seeing the two of you combine efforts and the
+courses.
+
+15 / 15: correctness
+
+No compiler or Clippy warnings or errors.
+
+Great set of tests.
+
+15 / 15: style/design
+
+Nice use of `&'input str` references back into the grammar source.
+
+Excellent to use a `proc_macro` to support defining the grammar in a source
+file.
+
+Collections and iterators used to good effect.
+
+Good writeup of code structure.
+
+30 / 30: effort/accomplishment
+
+Great work; ranked as "challenging".
+
+Nice amount of code written.
+
+10 / 10: presentation
+
+Very good.  Nice "Rusty" examples.
+
+
+**********************************************************************
+**********************************************************************
+
+
+github.com/AlDanial/cloc v 1.82  T=0.01 s (1176.5 files/s, 179373.8 lines/s)
+-------------------------------------------------------------------------------------
+File                                              blank        comment           code
+-------------------------------------------------------------------------------------
+./src/ll_table_gen.rs                                60             12            476
+./src/lib.rs                                         64             12            452
+./src/grammar_tests.rs                                9              0            230
+./tests/arithmetic.rs                                25              0            168
+./examples/manual-parser/parser.rs                   28             18            167
+./src/lexer.rs                                       21             21            146
+./tests/parenthesized_numbers.rs                     21              0             97
+./src/parsing.rs                                      5              2             81
+./src/ast.rs                                          9              0             61
+./examples/manual-parser/main.rs                     12              0             45
+./Cargo.toml                                          3              0             14
+./examples/manual-parser/lexer.rs                     1              0             13
+./examples/manual-parser/ast.rs                       0              0              5
+./README.md                                           2              0              4
+./build.rs                                            0              0              3
+-------------------------------------------------------------------------------------
+SUM:                                                260             65           1962
+-------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Rust                            13            255             65           1944
+TOML                             1              3              0             14
+Markdown                         1              2              0              4
+-------------------------------------------------------------------------------
+SUM:                            15            260             65           1962
+-------------------------------------------------------------------------------
